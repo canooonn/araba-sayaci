@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Sayaç">
+<title>Araba Sayacı</title>
+<style>
+  :root{
+    --bg:#F6F7FA;
+    --surface:#FFFFFF;
+    --surface-2:#EFF1F5;
+    --line:#E3E6EC;
+    --text:#1B1E27;
+    --text-2:#6B7180;
+    --accent:#2F6FED;
+    --accent-soft:#2F6FED14;
+    --plus:#1E9E5A;
+    --plus-soft:#1E9E5A16;
+    --minus:#E0453A;
+    --minus-soft:#E0453A16;
+    --radius:16px;
+    --shadow: 0 1px 2px rgba(20,24,35,.04), 0 4px 14px rgba(20,24,35,.05);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none;}
+  html,body{
+    margin:0; padding:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    height:100%; overscroll-behavior:none;
+  }
+  body{
+    display:flex; flex-direction:column;
+    padding-top:env(safe-area-inset-top);
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .mono{
+    font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  h2{ font-size:13px; font-weight:700; color:var(--text-2); text-transform:uppercase; letter-spacing:.04em; margin:18px 4px 10px; }
+
+  header{
+    padding:16px 20px 16px;
+    background:var(--surface);
+    border-bottom:1px solid var(--line);
+  }
+  .top-row{display:flex; align-items:center; justify-content:space-between;}
+  .date-label{color:var(--text-2); font-size:13px; font-weight:600;}
+  .yesterday-chip{
+    color:var(--accent); font-size:12px; font-weight:700; background:var(--accent-soft);
+    padding:5px 11px; border-radius:999px;
+  }
+  .total-wrap{ margin-top:12px; display:flex; align-items:baseline; gap:10px; }
+  .total-num{
+    font-size:44px; font-weight:800; color:var(--text); line-height:1;
+    transition: transform .12s ease;
+  }
+  .total-num.tick{ transform: scale(1.06); color:var(--accent); }
+  .total-label{ color:var(--text-2); font-size:14px; font-weight:600; }
+
+  .toolbar{
+    display:flex; gap:8px; padding:10px 20px; background:var(--surface);
+    border-bottom:1px solid var(--line);
+  }
+  .btn{
+    border:none; border-radius:11px; padding:10px 14px;
+    font-size:14px; font-weight:700; color:var(--text);
+    background:var(--surface-2);
+  }
+  .btn:active{ opacity:.65; }
+  .btn.accent{ background:var(--accent); color:#fff; }
+  .btn.ghost{ background:transparent; border:1px solid var(--line); color:var(--text-2); }
+  .toolbar .spacer{ flex:1; }
+
+  main{ flex:1; overflow-y:auto; padding:6px 16px 110px; }
+
+  .catalog{
+    display:grid; grid-template-columns:repeat(4, 1fr); gap:9px;
+  }
+  .brand-tile{
+    background:var(--surface); border:1px solid var(--line); border-radius:14px;
+    padding:10px 6px 8px; text-align:center; box-shadow:var(--shadow);
+    position:relative;
+  }
+  .brand-tile.selecting{ border-color:var(--accent); }
+  .brand-tile.selected{ background:var(--accent-soft); border-color:var(--accent); }
+  .brand-badge{
+    width:38px; height:38px; border-radius:11px; margin:0 auto 6px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:800; color:#fff; letter-spacing:.01em;
+  }
+  .brand-name{ font-size:11.5px; font-weight:600; color:var(--text); line-height:1.2; }
+  .brand-tile .sel-mark{
+    position:absolute; top:6px; right:6px; width:18px; height:18px; border-radius:50%;
+    background:#fff; border:2px solid var(--line); display:none;
+    align-items:center; justify-content:center; font-size:11px; color:var(--accent); font-weight:900;
+  }
+  .catalog.selectmode .sel-mark{ display:flex; }
+  .brand-tile.selected .sel-mark{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  .brand-count{
+    position:absolute; top:6px; left:6px; min-width:16px; height:16px; padding:0 4px;
+    border-radius:8px; background:var(--text); color:#fff; font-size:10px; font-weight:800;
+    display:none; align-items:center; justify-content:center;
+  }
+  .brand-count.show{ display:flex; }
+
+  .row{
+    display:flex; align-items:center; gap:10px;
+    background:var(--surface); border:1px solid var(--line); box-shadow:var(--shadow);
+    border-radius:var(--radius); padding:10px 12px; margin-bottom:9px;
+  }
+  .row.selectable{ border-color:var(--accent); }
+  .check{
+    width:22px; height:22px; border-radius:6px; border:2px solid var(--line);
+    flex-shrink:0; display:none; align-items:center; justify-content:center; color:#fff; font-size:13px; font-weight:800;
+  }
+  .row.selectable .check{ display:flex; }
+  .row.selected .check{ background:var(--accent); border-color:var(--accent); }
+  .row-badge{
+    width:30px; height:30px; border-radius:9px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:800; color:#fff;
+  }
+  .row-name{ flex:1; font-size:15.5px; font-weight:700; min-width:0; }
+  .row-name .sub{ display:block; font-size:11.5px; font-weight:500; color:var(--text-2); margin-top:1px;}
+  .count-controls{ display:flex; align-items:center; gap:8px; }
+  .step-btn{
+    width:38px; height:38px; border-radius:50%; border:none;
+    font-size:19px; font-weight:800; color:var(--text);
+  }
+  .step-btn.minus{ background:var(--minus-soft); color:var(--minus); }
+  .step-btn.plus{ background:var(--plus-soft); color:var(--plus); }
+  .step-btn:active{ transform:scale(.9); }
+  .row-count{ width:30px; text-align:center; font-size:18px; font-weight:800; }
+
+  .empty{
+    text-align:center; color:var(--text-2); margin:24px 4px; font-size:13.5px; line-height:1.6;
+  }
+
+  .add-row{ display:flex; gap:8px; margin-top:2px; }
+  .add-row input{
+    flex:1; background:var(--surface); border:1px solid var(--line);
+    border-radius:11px; padding:11px 12px; color:var(--text); font-size:15px;
+  }
+  .add-row input::placeholder{ color:var(--text-2); }
+
+  .action-bar{
+    position:fixed; left:0; right:0; bottom:0;
+    padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+    background:var(--surface); border-top:1px solid var(--line);
+    display:none; gap:10px; box-shadow: 0 -4px 14px rgba(20,24,35,.06);
+  }
+  .action-bar.show{ display:flex; }
+  .action-bar .btn{ flex:1; text-align:center; }
+
+  .history{ margin-top:22px; }
+  .history summary{
+    color:var(--text-2); font-size:13px; font-weight:700; padding:6px 4px; list-style:none;
+    display:flex; align-items:center; gap:6px;
+  }
+  .history summary::-webkit-details-marker{ display:none; }
+  .history summary:before{ content:"▸"; }
+  .history[open] summary:before{ content:"▾"; }
+  .hist-entry{
+    background:var(--surface); border:1px solid var(--line); box-shadow:var(--shadow);
+    border-radius:14px; padding:12px; margin-top:9px;
+  }
+  .hist-date{ font-size:12.5px; color:var(--text-2); font-weight:600; margin-bottom:4px; }
+  .hist-total{ font-size:21px; font-weight:800; color:var(--accent); margin-bottom:6px; }
+  .hist-line{ display:flex; justify-content:space-between; font-size:13.5px; color:var(--text); padding:2px 0; }
+  .hist-line span:last-child{ color:var(--text-2); font-weight:700; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="top-row">
+    <div class="date-label" id="dateLabel">—</div>
+    <div class="yesterday-chip" id="yesterdayChip" style="display:none;"></div>
+  </div>
+  <div class="total-wrap">
+    <div class="total-num mono" id="totalNum">0</div>
+    <div class="total-label">bugün toplam</div>
+  </div>
+</header>
+
+<div class="toolbar">
+  <button class="btn ghost" id="mergeToggleBtn">Birleştir</button>
+  <div class="spacer"></div>
+  <button class="btn ghost" id="resetDayBtn">Günü sıfırla</button>
+</div>
+
+<main>
+  <h2>Katalog · dokun say, basılı tut çoklu seç</h2>
+  <div class="catalog" id="catalog"></div>
+
+  <h2>Bugünün sayaçları</h2>
+  <div class="add-row">
+    <input id="brandInput" type="text" placeholder="Kataloğda yok mu? Marka yaz" autocapitalize="words" autocomplete="off" autocorrect="off">
+    <button class="btn accent" id="addBrandBtn">Ekle</button>
+  </div>
+  <div id="rows" style="margin-top:10px;"></div>
+  <div class="empty" id="emptyMsg">Henüz sayaç yok. Yukarıdaki kataloğa dokun ya da marka ekle.</div>
+
+  <div class="history">
+    <details>
+      <summary>Geçmiş günler</summary>
+      <div id="historyList"></div>
+    </details>
+  </div>
+</main>
+
+<div class="action-bar" id="catalogBar">
+  <button class="btn ghost" id="catalogCancelBtn">Vazgeç</button>
+  <button class="btn accent" id="catalogConfirmBtn">Seçilenleri ekle</button>
+</div>
+
+<div class="action-bar" id="mergeBar">
+  <button class="btn ghost" id="mergeCancelBtn">Vazgeç</button>
+  <button class="btn accent" id="mergeConfirmBtn">Seçilenleri birleştir</button>
+</div>
+
+<script>
+(function(){
+  const LS_STATE = 'carCounter.state.v2';
+  const LS_LOGS  = 'carCounter.logs.v2';
+
+  const CATALOG = [
+    {id:'renault', name:'Renault', abbr:'RN', bg:'#F2C300', fg:'#1B1E27'},
+    {id:'fiat', name:'Fiat', abbr:'FT', bg:'#A6192E', fg:'#fff'},
+    {id:'volkswagen', name:'Volkswagen', abbr:'VW', bg:'#00264D', fg:'#fff'},
+    {id:'ford', name:'Ford', abbr:'FD', bg:'#00338D', fg:'#fff'},
+    {id:'toyota', name:'Toyota', abbr:'TY', bg:'#EB0A1E', fg:'#fff'},
+    {id:'hyundai', name:'Hyundai', abbr:'HY', bg:'#002C5F', fg:'#fff'},
+    {id:'opel', name:'Opel', abbr:'OP', bg:'#F5D300', fg:'#1B1E27'},
+    {id:'peugeot', name:'Peugeot', abbr:'PG', bg:'#0A0A64', fg:'#fff'},
+    {id:'citroen', name:'Citroën', abbr:'CT', bg:'#C4122E', fg:'#fff'},
+    {id:'dacia', name:'Dacia', abbr:'DC', bg:'#4E6E8E', fg:'#fff'},
+    {id:'skoda', name:'Skoda', abbr:'SK', bg:'#3FA535', fg:'#fff'},
+    {id:'nissan', name:'Nissan', abbr:'NS', bg:'#C3002F', fg:'#fff'},
+    {id:'mercedes', name:'Mercedes', abbr:'MB', bg:'#2B2E33', fg:'#fff'},
+    {id:'bmw', name:'BMW', abbr:'BM', bg:'#0066B1', fg:'#fff'},
+    {id:'audi', name:'Audi', abbr:'AD', bg:'#8C0F2B', fg:'#fff'},
+    {id:'kia', name:'Kia', abbr:'KI', bg:'#BB162B', fg:'#fff'},
+    {id:'honda', name:'Honda', abbr:'HD', bg:'#CC0000', fg:'#fff'},
+    {id:'mazda', name:'Mazda', abbr:'MZ', bg:'#7A1128', fg:'#fff'},
+    {id:'seat', name:'Seat', abbr:'ST', bg:'#E6002E', fg:'#fff'},
+    {id:'togg', name:'Togg', abbr:'TG', bg:'#153F6E', fg:'#fff'},
+  ];
+  const catalogById = Object.fromEntries(CATALOG.map(b=>[b.id,b]));
+
+  const todayStr = () => {
+    const d = new Date();
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  };
+  const fmtDate = (s) => {
+    const [y,m,d] = s.split('-');
+    const months = ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
+    return `${parseInt(d)} ${months[parseInt(m)-1]} ${y}`;
+  };
+
+  function loadState(){
+    try{ const raw = localStorage.getItem(LS_STATE); if(raw) return JSON.parse(raw); }catch(e){}
+    return { date: todayStr(), brands: [] };
+  }
+  function saveState(){ try{ localStorage.setItem(LS_STATE, JSON.stringify(state)); }catch(e){} }
+  function loadLogs(){
+    try{ const raw = localStorage.getItem(LS_LOGS); if(raw) return JSON.parse(raw); }catch(e){}
+    return [];
+  }
+  function saveLogs(){ try{ localStorage.setItem(LS_LOGS, JSON.stringify(logs)); }catch(e){} }
+
+  let state = loadState();
+  let logs = loadLogs();
+
+  (function rollover(){
+    const t = todayStr();
+    if(state.date !== t){
+      const total = state.brands.reduce((s,b)=>s+b.count,0);
+      if(state.brands.length){
+        logs.unshift({ date: state.date, brands: state.brands.map(b=>({name:b.name,count:b.count})), total });
+        logs = logs.slice(0,30);
+        saveLogs();
+      }
+      state = { date: t, brands: [] };
+      saveState();
+    }
+  })();
+
+  let idCounter = state.brands.reduce((m,b)=>Math.max(m, b.id||0), 0);
+  let mergeMode = false, selectedRows = new Set();
+  let catalogSelectMode = false, selectedCatalog = new Set();
+
+  const catalogEl = document.getElementById('catalog');
+  const rowsEl = document.getElementById('rows');
+  const emptyMsg = document.getElementById('emptyMsg');
+  const dateLabel = document.getElementById('dateLabel');
+  const yesterdayChip = document.getElementById('yesterdayChip');
+  const totalNum = document.getElementById('totalNum');
+  const historyList = document.getElementById('historyList');
+  const mergeBar = document.getElementById('mergeBar');
+  const mergeToggleBtn = document.getElementById('mergeToggleBtn');
+  const catalogBar = document.getElementById('catalogBar');
+
+  function total(){ return state.brands.reduce((s,b)=>s+b.count,0); }
+  function activeByCatalogId(cid){ return state.brands.find(b=>b.catalogId===cid); }
+
+  function renderTotal(bump){
+    totalNum.textContent = total();
+    if(bump){ totalNum.classList.add('tick'); setTimeout(()=>totalNum.classList.remove('tick'),120); }
+  }
+  function renderHeader(){
+    dateLabel.textContent = fmtDate(state.date);
+    if(logs.length){ yesterdayChip.style.display='inline-block'; yesterdayChip.textContent = `dün: ${logs[0].total}`; }
+    else yesterdayChip.style.display='none';
+  }
+
+  function renderCatalog(){
+    catalogEl.className = 'catalog' + (catalogSelectMode ? ' selectmode' : '');
+    catalogEl.innerHTML = '';
+    CATALOG.forEach(b=>{
+      const active = activeByCatalogId(b.id);
+      const tile = document.createElement('div');
+      tile.className = 'brand-tile' + (catalogSelectMode ? ' selecting' : '') + (selectedCatalog.has(b.id) ? ' selected' : '');
+      tile.innerHTML = `
+        <div class="brand-count ${active && active.count>0 ? 'show':''}">${active?active.count:0}</div>
+        <div class="sel-mark">${selectedCatalog.has(b.id)?'✓':''}</div>
+        <div class="brand-badge" style="background:${b.bg}; color:${b.fg};">${b.abbr}</div>
+        <div class="brand-name">${b.name}</div>
+      `;
+      let pressTimer = null;
+      const startPress = ()=>{
+        pressTimer = setTimeout(()=>{
+          catalogSelectMode = true;
+          selectedCatalog.add(b.id);
+          renderCatalog();
+          if(navigator.vibrate) navigator.vibrate(12);
+        }, 420);
+      };
+      const cancelPress = ()=>{ if(pressTimer){ clearTimeout(pressTimer); pressTimer=null; } };
+      tile.addEventListener('touchstart', startPress, {passive:true});
+      tile.addEventListener('touchend', cancelPress);
+      tile.addEventListener('touchmove', cancelPress);
+      tile.addEventListener('mousedown', startPress);
+      tile.addEventListener('mouseup', cancelPress);
+      tile.addEventListener('click', ()=>{
+        if(catalogSelectMode){
+          if(selectedCatalog.has(b.id)) selectedCatalog.delete(b.id); else selectedCatalog.add(b.id);
+          renderCatalog();
+          return;
+        }
+        let row = activeByCatalogId(b.id);
+        if(!row){
+          idCounter += 1;
+          row = { id: idCounter, name: b.name, count: 0, catalogId: b.id };
+          state.brands.push(row);
+        }
+        row.count += 1;
+        saveState(); renderTotal(true); renderCatalog(); renderRows();
+      });
+      catalogEl.appendChild(tile);
+    });
+    catalogBar.classList.toggle('show', catalogSelectMode);
+  }
+
+  function renderRows(){
+    rowsEl.innerHTML = '';
+    emptyMsg.style.display = state.brands.length ? 'none' : 'block';
+    state.brands.forEach(b=>{
+      const cat = b.catalogId ? catalogById[b.catalogId] : null;
+      const row = document.createElement('div');
+      row.className = 'row' + (mergeMode ? ' selectable' : '') + (selectedRows.has(b.id) ? ' selected' : '');
+
+      const check = document.createElement('div');
+      check.className = 'check'; check.textContent = selectedRows.has(b.id) ? '✓' : '';
+      row.appendChild(check);
+
+      const badge = document.createElement('div');
+      badge.className = 'row-badge';
+      if(cat){ badge.style.background = cat.bg; badge.style.color = cat.fg; badge.textContent = cat.abbr; }
+      else { badge.style.background = 'var(--surface-2)'; badge.style.color = 'var(--text-2)'; badge.textContent = '•'; }
+      row.appendChild(badge);
+
+      const name = document.createElement('div');
+      name.className = 'row-name';
+      name.innerHTML = `${b.name}` + (b.name.includes('&') ? `<span class="sub">birleşik</span>` : '');
+      row.appendChild(name);
+
+      if(mergeMode){
+        row.addEventListener('click', ()=>{
+          if(selectedRows.has(b.id)) selectedRows.delete(b.id); else selectedRows.add(b.id);
+          renderRows();
+        });
+      } else {
+        const controls = document.createElement('div');
+        controls.className = 'count-controls';
+        const minus = document.createElement('button');
+        minus.className = 'step-btn minus'; minus.textContent = '–';
+        minus.addEventListener('click', (e)=>{ e.stopPropagation(); b.count = Math.max(0,b.count-1); saveState(); renderTotal(true); renderRows(); renderCatalog(); });
+        const cnt = document.createElement('div'); cnt.className = 'row-count mono'; cnt.textContent = b.count;
+        const plus = document.createElement('button');
+        plus.className = 'step-btn plus'; plus.textContent = '+';
+        plus.addEventListener('click', (e)=>{ e.stopPropagation(); b.count += 1; saveState(); renderTotal(true); renderRows(); renderCatalog(); });
+        controls.appendChild(minus); controls.appendChild(cnt); controls.appendChild(plus);
+        row.appendChild(controls);
+        row.addEventListener('dblclick', ()=>{
+          if(confirm(`"${b.name}" satırını silmek istiyor musun?`)){
+            state.brands = state.brands.filter(x=>x.id!==b.id);
+            saveState(); renderAll();
+          }
+        });
+      }
+      rowsEl.appendChild(row);
+    });
+  }
+
+  function renderHistory(){
+    historyList.innerHTML = '';
+    if(!logs.length){ historyList.innerHTML = `<div style="color:var(--text-2); font-size:13px; padding:8px 4px;">Henüz kayıt yok.</div>`; return; }
+    logs.forEach(l=>{
+      const el = document.createElement('div'); el.className = 'hist-entry';
+      const lines = l.brands.map(b=>`<div class="hist-line"><span>${b.name}</span><span>${b.count}</span></div>`).join('');
+      el.innerHTML = `<div class="hist-date">${fmtDate(l.date)}</div><div class="hist-total mono">${l.total}</div>${lines}`;
+      historyList.appendChild(el);
+    });
+  }
+
+  function renderAll(){ renderHeader(); renderTotal(false); renderCatalog(); renderRows(); renderHistory(); }
+
+  document.getElementById('addBrandBtn').addEventListener('click', addBrand);
+  document.getElementById('brandInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') addBrand(); });
+  function addBrand(){
+    const input = document.getElementById('brandInput');
+    const name = input.value.trim();
+    if(!name) return;
+    idCounter += 1;
+    state.brands.push({ id: idCounter, name, count: 0, catalogId: null });
+    input.value = '';
+    saveState(); renderRows(); renderTotal(false);
+  }
+
+  document.getElementById('catalogCancelBtn').addEventListener('click', ()=>{
+    catalogSelectMode = false; selectedCatalog.clear(); renderCatalog();
+  });
+  document.getElementById('catalogConfirmBtn').addEventListener('click', ()=>{
+    selectedCatalog.forEach(cid=>{
+      if(!activeByCatalogId(cid)){
+        const b = catalogById[cid];
+        idCounter += 1;
+        state.brands.push({ id: idCounter, name: b.name, count: 0, catalogId: cid });
+      }
+    });
+    catalogSelectMode = false; selectedCatalog.clear();
+    saveState(); renderCatalog(); renderRows();
+  });
+
+  mergeToggleBtn.addEventListener('click', ()=>{
+    mergeMode = !mergeMode; selectedRows.clear();
+    mergeToggleBtn.textContent = mergeMode ? 'İptal' : 'Birleştir';
+    mergeBar.classList.toggle('show', mergeMode);
+    renderRows();
+  });
+  document.getElementById('mergeCancelBtn').addEventListener('click', ()=>{
+    mergeMode = false; selectedRows.clear();
+    mergeToggleBtn.textContent = 'Birleştir'; mergeBar.classList.remove('show'); renderRows();
+  });
+  document.getElementById('mergeConfirmBtn').addEventListener('click', ()=>{
+    if(selectedRows.size < 2) return;
+    const chosen = state.brands.filter(b=>selectedRows.has(b.id));
+    const rest = state.brands.filter(b=>!selectedRows.has(b.id));
+    const mergedName = chosen.map(b=>b.name).join(' & ');
+    const mergedCount = chosen.reduce((s,b)=>s+b.count,0);
+    idCounter += 1;
+    rest.push({ id: idCounter, name: mergedName, count: mergedCount, catalogId: null });
+    state.brands = rest;
+    mergeMode = false; selectedRows.clear();
+    mergeToggleBtn.textContent = 'Birleştir'; mergeBar.classList.remove('show');
+    saveState(); renderAll();
+  });
+
+  document.getElementById('resetDayBtn').addEventListener('click', ()=>{
+    if(!state.brands.length) return;
+    if(!confirm('Bugünün sayımını geçmişe kaydedip sıfırlamak istiyor musun?')) return;
+    const t = total();
+    logs.unshift({ date: state.date, brands: state.brands.map(b=>({name:b.name,count:b.count})), total: t });
+    logs = logs.slice(0,30);
+    saveLogs();
+    state.brands = [];
+    saveState(); renderAll();
+  });
+
+  renderAll();
+})();
+</script>
+</body>
+</html>
